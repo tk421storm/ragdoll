@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Patch>
+		<Operation Class="PatchOperationAdd">
+			<xpath>Defs/ThingDef[@Name="BasePawn"]/comps</xpath>
+			<value>
+			<li Class="TKS_Ragdoll.CompProperties_Tossable" />
+		</value>
+	</Operation>
+	<Operation Class="PatchOperationAdd">
+		<xpath>Defs/ThingDef[@Name="ResourceBase"]/comps</xpath>
+		<value>
+				<li Class="TKS_Ragdoll.CompProperties_Tossable" />
+		</value>
+	</Operation>
+</Patch>
