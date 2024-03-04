@@ -36,14 +36,12 @@ namespace TKS_Ragdoll
             this.settings = GetSettings<TKS_RagdollSettings>();
 
             Harmony harmony = new Harmony("TKS_Ragdoll");
-            Harmony.DEBUG = true;
+            //Harmony.DEBUG = true;
             harmony.PatchAll();
             //Harmony.DEBUG = false;
             Log.Message($"TKS_Ragdoll: Patching finished");
 
         }
-
-
 
         private string editBufferFloat;
 
@@ -65,7 +63,7 @@ namespace TKS_Ragdoll
 
     public class TKS_RagdollSettings : ModSettings
     {
-        public bool debugPrint = true;
+        public bool debugPrint = false;
 
         public override void ExposeData()
         {
@@ -156,6 +154,8 @@ namespace TKS_Ragdoll
                     doneTossing.Add(thing);
                     continue;
                 }
+
+                //override to force the thing to tick
                 thing.Tick();
             }
 
@@ -165,7 +165,6 @@ namespace TKS_Ragdoll
                 this.tossingIDs.Remove(thing.thingIDNumber);
             }
         }
-
         public void TossThis(Thing thing)
         {
             TKS_Ragdoll.DebugMessage("map " + this.map.ToString() + " beginning toss of "+thing.ThingID);
@@ -173,6 +172,7 @@ namespace TKS_Ragdoll
             this.tossingIDs.Add(thing.thingIDNumber);
             this.tossingThings.Add(thing);
         }
+
 
         public bool ObstructionCheck(IntVec3 point)
         {
@@ -189,6 +189,8 @@ namespace TKS_Ragdoll
                 this.tossingIDs = new List<int>();
             }
 
+            //dont bother trying to restart tosses
+            /*
             if (this.tossingIDs.Count!=0)
             {
                 TKS_Ragdoll.DebugMessage("map " + this.map.ToString() + " finalize init: attempting to continue tossing " + this.tossingIDs.Count.ToString() + " Things ");// (does not include pawns): " + String.Join(", ", this.tossingIDs));
@@ -226,6 +228,7 @@ namespace TKS_Ragdoll
                 }
                     
             }
+            */
         }
     }
 
@@ -238,6 +241,11 @@ namespace TKS_Ragdoll
             {
                 return (CompProperties_Tossable)this.props;
             }
+        }
+
+        private float parabola(int length, float xValue)
+        {
+            return (-(1.0f / (float)length) * xValue * xValue) + xValue;
         }
 
         private void DrawLine(IntVec3 start, IntVec3 dest)
@@ -270,9 +278,23 @@ namespace TKS_Ragdoll
 
         public void CalculateTossFromExplosion(Explosion explosion, Thing thing)
         {
+            if (this.tosserId == explosion.thingIDNumber)
+            {
+                TKS_Ragdoll.DebugMessage(explosion.ThingID + " is already tossing "+thing.ThingID);
+                return;
+            } else
+            {
+                this.tosserId = explosion.thingIDNumber;
+            }
             float damage = explosion.GetDamageAmountAt(thing.Position) / 10f;
 
-            TKS_Ragdoll.DebugMessage(thing.ThingID + " recieved " + damage.ToString() + " damage");
+            TKS_Ragdoll.DebugMessage(thing.ThingID + " recieved " + damage.ToString() + " damage at position "+thing.Position+" from explosion at position "+explosion.Position);
+
+            if (damage == 0.0f)
+            {
+                TKS_Ragdoll.DebugMessage(explosion.ThingID + " no toss since no damage");
+                return;
+            }
 
             float adjust = 1.0f;
 
@@ -280,7 +302,7 @@ namespace TKS_Ragdoll
             {
                 //adjust value at cell
                 adjust = (explosion.radius - thing.Position.DistanceTo(explosion.Position)) / explosion.radius;
-                TKS_Ragdoll.DebugMessage(thing.ThingID + " no falloff, adjusting toss distance by " + adjust.ToString());
+                TKS_Ragdoll.DebugMessage(explosion.ThingID + " no falloff, adjusting toss distance by " + adjust.ToString());
 
             }
 
@@ -288,22 +310,30 @@ namespace TKS_Ragdoll
 
             if (thing.Position.ToVector3() != explosion.Position.ToVector3())
             {
-                angle = -(thing.Position.ToVector3()-explosion.Position.ToVector3()).normalized;
+                angle = thing.Position.ToVector3() - explosion.Position.ToVector3();
             }
             else
             {
                 //toss randomly
                 IntVec3 above = new IntVec3(Mathf.RoundToInt(UnityEngine.Random.Range(-1, 1)), 0, Mathf.RoundToInt(UnityEngine.Random.Range(-1, 1)));
                 IntVec3 up = thing.Position + above;
-                angle = (thing.Position.ToVector3() - up.ToVector3()).normalized;
+                angle = thing.Position.ToVector3() - up.ToVector3();
             }
 
-            Vector3 tossPoint = (angle * (damage * adjust)) + explosion.Position.ToVector3();
+            angle = angle.normalized;
+
+            TKS_Ragdoll.DebugMessage(thing.ThingID + " normalized explosion angle: " + angle.ToString());
+
+            Vector3 tossVector = angle * (damage * adjust);
+
+            TKS_Ragdoll.DebugMessage(thing.ThingID + " toss Vector: " + tossVector.ToString());
+
+            Vector3 tossPoint =  tossVector + thing.Position.ToVector3();
             IntVec3 tossPointVec3 = tossPoint.ToIntVec3();
 
             TKS_Ragdoll.DebugMessage(thing.ThingID + " tossing to " + tossPointVec3.ToString());
 
-            //LocalTargetInfo tossDest = new LocalTargetInfo(tossPointVec3);
+            LocalTargetInfo tossDest = new LocalTargetInfo(tossPointVec3);
 
             //stop pawns from moving
 
@@ -352,10 +382,11 @@ namespace TKS_Ragdoll
             this.hitSomething = null;
             this.start = start;
             this.startTick = Find.TickManager.TicksGame;
+            this.tweenPoint = start.ToVector3();
 
             DrawLine(this.start, this.destination);
 
-            //TKS_Ragdoll.DebugMessage(thing.ThingID + " checking toss arc for obstructions");
+            TKS_Ragdoll.DebugMessage(thing.ThingID + " checking toss arc for obstructions");
 
             MapComponent_Toss tossComponent = map.GetComponent<MapComponent_Toss>();
 
@@ -370,7 +401,7 @@ namespace TKS_Ragdoll
 
                 if (!tossComponent.ObstructionCheck(point))
                 {
-                    TKS_Ragdoll.DebugMessage(thing.ThingID + " stopping toss at impassable/out of bounds point "+point.ToString());
+                    TKS_Ragdoll.DebugMessage(thing.ThingID + " stopping toss at impassable/out of bounds point "+point.ToString() +" (current toss arc "+String.Join(", ", this.line)+", i: "+i.ToString()+")");
 
                     if (i<=1)
                     {
@@ -379,8 +410,10 @@ namespace TKS_Ragdoll
                         return;
                     }
 
-                    this.line = this.line.GetRange(0, i-1);
-                    this.destination = this.line[i - 1];
+                    this.line = this.line.GetRange(0, i);
+                    this.destination = this.line.Last();
+
+                    TKS_Ragdoll.DebugMessage(thing.ThingID + " new toss arc: " + String.Join(", ", this.line));
 
                     //check for impact
                     Building edifice = point.GetEdifice(tossComponent.map);
@@ -390,12 +423,34 @@ namespace TKS_Ragdoll
                         this.hitSomething = edifice;
                     }
 
-
+                    break;
                 }
                 i += 1;
             }
 
-            TKS_Ragdoll.DebugMessage(thing.ThingID + " toss begun from " + start.ToString() + " to " + dest.ToString());
+            if (line[0]==line.Last())
+            {
+                TKS_Ragdoll.DebugMessage(thing.ThingID + " cacnel toss as first point is same as last");
+                StopToss();
+                return;
+
+            }
+
+            //add height (doesnt render anything by default)
+            /*
+            int y = 0;
+            List<IntVec3> lineWithHeight = new List<IntVec3>();
+            foreach (IntVec3 linePoint in line)
+            {
+                float height = parabola(line.Count()-1, y);
+                //TKS_Ragdoll.DebugMessage("adding " + height.ToString() + " to point " + y.ToString());
+                lineWithHeight.Add(new IntVec3(linePoint.x, (int)Math.Round(height), linePoint.z));
+                y += 1;
+            }
+            this.line = lineWithHeight;
+            */
+
+            TKS_Ragdoll.DebugMessage(thing.ThingID + " toss begun from " + start.ToString() + " to " + dest.ToString()+ ": ["+String.Join(", ", this.line)+"]");
 
             this.tossAngle = -(dest.ToVector3() - start.ToVector3()).normalized;
 
@@ -437,8 +492,11 @@ namespace TKS_Ragdoll
         public void StopToss()
         {
             this.tossing = false;
+            this.tosserId = 0;
 
             ThingWithComps thing = this.parent;
+
+            if (thing == null || thing.Destroyed) { return; }
 
             int stunTicks = 0;
 
@@ -481,7 +539,7 @@ namespace TKS_Ragdoll
 
         public override void CompTick()
         {
-            //only pawns tick here by default
+            //only pawns tick here by default so we use the mapcomponent tick to force all things to tick
             //TKS_Ragdoll.DebugMessage(thing.ThingID + " is ticking");
 
             base.CompTick();
@@ -492,6 +550,13 @@ namespace TKS_Ragdoll
 
             ThingWithComps thing = this.parent;
 
+            if (thing == null || thing.Destroyed)
+            {
+                TKS_Ragdoll.DebugMessage(thing.ThingID + " toss ended due to null");
+                StopToss();
+                return;
+            }
+
             TKS_Ragdoll.DebugMessage(thing.ThingID + " is being tossed");
 
             int tossRate = 5;
@@ -500,9 +565,26 @@ namespace TKS_Ragdoll
 
             if ((Find.TickManager.TicksGame-this.startTick) % tossRate == 0)
             {
-                //push along
-                IntVec3 newPoint = this.line[progress];
 
+                IntVec3 newPoint;
+                //push along
+                if (this.progress >= (this.line.Count() - 1))
+                {
+                    newPoint = this.line.Last();
+                }
+                else
+                {
+                    newPoint = this.line[progress];
+                }
+
+                MapComponent_Toss tossComponent = thing.Map.GetComponent<MapComponent_Toss>();
+
+                if (!tossComponent.ObstructionCheck(newPoint))
+                {
+                    Log.Warning("Cancelling toss to " + newPoint.ToString() + " due to obstruction, out of bounds");
+                    StopToss();
+                    return;
+                }
                 TKS_Ragdoll.DebugMessage(thing.ThingID + " setting to "+newPoint.ToString());
 
                 thing.Position = newPoint;
@@ -511,10 +593,12 @@ namespace TKS_Ragdoll
 
                 this.tweenProgress = 1;
 
-                if (newPoint==this.destination)
+                if (newPoint==this.destination || (newPoint.x == this.destination.x && newPoint.z == this.destination.z))
                 {
                     TKS_Ragdoll.DebugMessage(thing.ThingID + " toss complete");
+                    thing.Position = new IntVec3(thing.Position.x, 0, thing.Position.z);
                     StopToss();
+                    return;
                 }
 
             } else
@@ -529,7 +613,12 @@ namespace TKS_Ragdoll
                     tweenPoint = currentPoint.ToVector3() - tweenPoint;
                     TKS_Ragdoll.DebugMessage(thing.ThingID + " tweening to "+tweenPoint);
 
-                    thing.DrawAt(tweenPoint);
+                    this.tweenPoint = tweenPoint;
+                    //thing.Draw();
+                    if (thing != null && !thing.Destroyed)
+                    {
+                        thing.DrawAt(tweenPoint);
+                    }
 
                     this.tweenProgress += 1;
                     
@@ -542,6 +631,10 @@ namespace TKS_Ragdoll
         public bool tossing = false;
 
         public IntVec3 destination;
+
+        public Vector3 tweenPoint;
+
+        private int tosserId = 0;
 
         private Vector3 tossAngle;
 
@@ -556,6 +649,8 @@ namespace TKS_Ragdoll
         private List<IntVec3> line;
 
         private Thing hitSomething = null;
+
+
     }
 
     public class CompProperties_Tossable : CompProperties
@@ -591,6 +686,19 @@ namespace TKS_Ragdoll
     [HarmonyPatch(typeof(Pawn))]
     public static class Pawn_patches
     {
+        /*
+        [HarmonyPatch(typeof(Pawn), "DrawAt")]
+        [HarmonyPrefix]
+        public static bool DrawAt_Prefix(Vector3 drawLoc, bool flip, Pawn __instance)
+        {
+            if (__instance.TryGetComp<CompTossable>() != null && __instance.TryGetComp<CompTossable>().tossing)
+            {
+                __instance.Drawer.DrawAt(__instance.TryGetComp<CompTossable>().tweenPoint+new Vector3(0, .2f, 0));
+                return false;
+            }
+            return true;
+        }
+        */
 
         [HarmonyPatch(typeof(Pawn), "Kill")]
         [HarmonyPrefix]
@@ -717,14 +825,54 @@ namespace TKS_Ragdoll
     [HarmonyPatch(typeof(Thing))]
     public static class Thing_patches
     {
-        [HarmonyPatch(typeof(Thing), "DrawAt")]
+
+        [HarmonyPatch(typeof(Thing), "Destroy")]
         [HarmonyPrefix]
-        public static bool Draw(Thing __instance)
+        public static bool Destroy_patch(DestroyMode mode, Thing __instance)
         {
+            if (__instance is Pawn) { return true; }
+
+            //TKS_Ragdoll.DebugMessage(__instance.ThingID + " running destroy prefix");
             if (__instance.TryGetComp<CompTossable>() != null && __instance.TryGetComp<CompTossable>().tossing)
             {
-                return false;
+                __instance.TryGetComp<CompTossable>().StopToss();
             }
+
+            return true;
+        }
+
+        [HarmonyPatch(typeof(Thing), "DeSpawn")]
+        [HarmonyPrefix]
+        public static bool DeSpawn_prefix(DestroyMode mode, Thing __instance)
+        {
+            //TKS_Ragdoll.DebugMessage(__instance.ThingID + " running despawn prefix");
+            if (__instance is Pawn) { return true; }
+
+            if (__instance.TryGetComp<CompTossable>() != null && __instance.TryGetComp<CompTossable>().tossing)
+            {
+                __instance.TryGetComp<CompTossable>().StopToss();
+            }
+
+            return true;
+        }
+
+        [HarmonyPatch(typeof(Thing), "Draw")]
+        [HarmonyPrefix]
+        public static bool Draw_patch(Thing __instance)
+        {
+            if (__instance is Pawn)
+            {
+                return true;
+            }
+
+            if (__instance.TryGetComp<CompTossable>() != null && __instance.TryGetComp<CompTossable>().tossing)
+            {
+                //TKS_Ragdoll.DebugMessage("overriding draw funciton for "+__instance.ThingID+" due to toss");
+
+                __instance.DrawAt(__instance.TryGetComp<CompTossable>().tweenPoint);
+                return false;                
+            }
+
             return true;
         }
 
@@ -732,11 +880,13 @@ namespace TKS_Ragdoll
         [HarmonyPrefix]
         public static bool Kill_prefix(DamageInfo dinfo, Hediff exactCulprit, Thing __instance)
         {
+            //TKS_Ragdoll.DebugMessage(__instance.ThingID + " running kill prefix");
             if (__instance.TryGetComp<CompTossable>() != null && __instance.TryGetComp<CompTossable>().tossing)
             {
                 //dont let tossing things die (add option or something)
-                __instance.HitPoints = 1;
-                return false;
+                //__instance.HitPoints = 1;
+                //return false;
+                __instance.TryGetComp<CompTossable>().StopToss();
             }
 
             return true;
@@ -764,53 +914,7 @@ namespace TKS_Ragdoll
                 return true;
             }
 
-            float damage = explosion.GetDamageAmountAt(__instance.Position) / 10f;
-
-            TKS_Ragdoll.DebugMessage(__instance.ThingID+" recieved "+damage.ToString()+" damage");
-
-            float adjust = 1.0f;
-
-            if (!explosion.damageFalloff)
-            {
-                //adjust value at cell
-                adjust =  (explosion.radius-__instance.Position.DistanceTo(explosion.Position))/explosion.radius;
-                TKS_Ragdoll.DebugMessage(__instance.ThingID + " no falloff, adjusting toss distance by "+adjust.ToString());
-
-            }
-
-            Vector3 angle = new Vector3();
-
-            if (__instance.Position.ToVector3() != explosion.Position.ToVector3())
-            {
-                angle = __instance.Position.ToVector3() - explosion.Position.ToVector3();
-            }
-            else
-            {
-                //toss randomly
-                IntVec3 above = new IntVec3(Mathf.RoundToInt(UnityEngine.Random.Range(-1, 1)), 0, Mathf.RoundToInt(UnityEngine.Random.Range(-1, 1)));
-                IntVec3 up = __instance.Position + above;
-                angle = __instance.Position.ToVector3() - up.ToVector3();
-            }
-
-            Vector3 tossPoint = (angle * (damage*adjust)) + explosion.Position.ToVector3();
-            IntVec3 tossPointVec3 = tossPoint.ToIntVec3();
-
-            TKS_Ragdoll.DebugMessage(__instance.ThingID + " tossing to "+tossPointVec3.ToString());
-
-            LocalTargetInfo tossDest = new LocalTargetInfo(tossPointVec3);
-
-
-            //stop pawns from moving
-
-            if (__instance is Pawn)
-            {
-                Pawn pawn = (Pawn)__instance;
-                pawn.pather.StopDead();
-                //__instance.pather.StartPath(tossDest, PathEndMode.OnCell);
-            }
-
-            tossable.StartToss(__instance.Map.uniqueID, __instance.Position, tossPointVec3, explosion.instigator);
-
+            tossable.CalculateTossFromExplosion(explosion, __instance);
 
             if (__instance is Pawn)
             {
@@ -819,6 +923,7 @@ namespace TKS_Ragdoll
             }
 
             return false;
+
         }
     }
 
