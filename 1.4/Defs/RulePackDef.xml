@@ -49,4 +49,18 @@
 		</rulePack>
 	</RulePackDef>
 
+	<RulePackDef>
+		<defName>Event_Tossed_Melee</defName>
+		<rulePack>
+			<rulesStrings>
+				<li>r_logentry->[SUBJECT_definite] was [tossed].</li>
+				<li>r_logentry->[SUBJECT_definite] was [tossed] by [INITIATOR_definite].</li>
+
+				<li>tossed->thrown</li>
+				<li>tossed->tossed</li>
+				<li>tossed->knocked back</li>
+			</rulesStrings>
+		</rulePack>
+	</RulePackDef>
+
 </Defs>

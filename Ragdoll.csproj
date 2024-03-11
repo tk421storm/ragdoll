@@ -44,6 +44,7 @@
   <ItemGroup>
     <Content Include="1.4\Defs\RulePackDef.xml" />
     <Content Include="1.4\Languages\English\Keyed\Keys.xml" />
+    <None Include="1.4\Patches\Examples.xml.bak" />
     <Content Include="1.4\Patches\Patches.xml" />
     <Content Include="About\About.xml" />
   </ItemGroup>
@@ -71,6 +72,9 @@
     <Reference Include="UnityEngine.IMGUIModule">
       <HintPath>..\..\RimWorldWin64_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
       <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>..\..\RimWorldWin64_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UI">
       <HintPath>..\..\RimWorldWin64_Data\Managed\UnityEngine.UI.dll</HintPath>

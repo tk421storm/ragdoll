@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ModMetaData>
-	<name>Ragdoll</name>
+	<name>Ragdoll Physics</name>
 	<!-- The name of your mod in the mod list -->
 	<author>tk421storm</author>
 	<packageId>tk421storm.Ragdoll</packageId>
@@ -9,7 +9,7 @@
 		<!-- the version(s) your mod supports -->
 		<li>1.4</li>
 	</supportedVersions>
-	<description>Include genepacks in Gene Banks when gathering items player can sell.</description>
+	<description>Adds physics around explosions to toss Pawns and Things! Includes framework for other mods to add to Melee and Ranged Weapons.</description>
 	<modDependencies>
 		<li>
 			<packageId>brrainz.harmony</packageId>

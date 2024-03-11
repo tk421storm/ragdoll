@@ -3,8 +3,6 @@ using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using System.Reflection.Emit;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -18,6 +16,7 @@ namespace TKS_Ragdoll
     {
         public static RulePackDef Event_Tossed_Explosion;
         public static RulePackDef Event_Tossed_Bullet;
+        public static RulePackDef Event_Tossed_Melee;
         public static RulePackDef Event_Tossed_Impact;
     }
 
@@ -48,13 +47,36 @@ namespace TKS_Ragdoll
 
         private string editBufferFloat;
 
+        public void SliderLabeled(Listing_Standard ls, string label, ref float val, string format, float min = 0f, float max = 1f, string tooltip = null)
+        {
+            Rect rect = ls.GetRect(Text.LineHeight);
+            Rect rect2 = GenUI.Rounded(GenUI.LeftPart(rect, 0.7f));
+            Rect rect3 = GenUI.Rounded(GenUI.LeftPart(GenUI.Rounded(GenUI.RightPart(rect, 0.3f)), 0.67f));
+            Rect rect4 = GenUI.Rounded(GenUI.RightPart(rect, 0.1f));
+            TextAnchor anchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Widgets.Label(rect2, label);
+            float num = Widgets.HorizontalSlider(rect3, val, min, max, true, null, null, null, -1f);
+            val = num;
+            Text.Anchor = TextAnchor.MiddleRight;
+            Widgets.Label(rect4, string.Format(format, val));
+            if (!GenText.NullOrEmpty(tooltip))
+            {
+                TooltipHandler.TipRegion(rect, tooltip);
+            }
+            Text.Anchor = anchor;
+            ls.Gap(ls.verticalSpacing);
+        }
+
         public override void DoSettingsWindowContents(Rect inRect)
         {
             Listing_Standard listingStandard = new Listing_Standard();
             listingStandard.Begin(inRect);
 
             listingStandard.CheckboxLabeled("TKSDebugPrint".Translate(), ref settings.debugPrint);
-            listingStandard.TextFieldNumericLabeled<float>("TKSRagdollAdjust".Translate(), ref settings.adjust, ref editBufferFloat);
+            listingStandard.TextFieldNumericLabeled<int>("TKSRagdollMinStun".Translate(), ref settings.minStun, ref editBufferFloat);
+            listingStandard.SubLabel("TKSRagdollMinStunDescrip".Translate(), 100.0f);
+            this.SliderLabeled(listingStandard, "TKSRagdollAdjust".Translate()+": "+settings.adjust.ToString(), ref settings.adjust, "", 0.0f, 5.0f, "TKSRagdollAdjustToolTip".Translate());
             listingStandard.End();
             base.DoSettingsWindowContents(inRect);
         }
@@ -71,10 +93,13 @@ namespace TKS_Ragdoll
 
         public float adjust = 1.0f;
 
+        public int minStun = 0;
+
         public override void ExposeData()
         {
             Scribe_Values.Look(ref debugPrint, "debugPrint");
             Scribe_Values.Look(ref adjust, "adjust");
+            Scribe_Values.Look(ref minStun, "minStun");
 
             base.ExposeData();
         }
@@ -128,6 +153,11 @@ namespace TKS_Ragdoll
         public float tossFalloff = 1.0f;
     }
 
+    public class ModExtension_MeleeToss : DefModExtension
+    {
+        public int tossMagnitude = 0;
+    }
+
     public static class TKSUtils
     {
 
@@ -167,6 +197,41 @@ namespace TKS_Ragdoll
             return null;
         }
     }
+
+    /* haven't figured out melee yet
+    public class SubEffecter_Knockback : SubEffecter
+    {
+        public int knockbackAmount;
+
+        public SubEffecter_Knockback(SubEffecterDef subDef, Effecter parent) : base(subDef, parent)
+        {
+            this.knockbackAmount = 1;
+        }
+
+        public override void SubTrigger(TargetInfo A, TargetInfo B, int overrideSpawnTick = -1)
+        {
+            Thing thing = B.Thing;
+            Pawn pawn = thing as Pawn;
+            if (pawn != null)
+            {
+                TKS_Ragdoll.DebugMessage("pawn " + pawn.Name + " recieves knockback in subeffector");
+            }
+        }
+    }
+    
+    public class DamageWorker_Knockback : DamageWorker_AddGlobal
+    {
+        public override DamageWorker.DamageResult Apply(DamageInfo dinfo, Thing thing)
+        {
+            Pawn pawn = thing as Pawn;
+            if (pawn != null)
+            {
+                TKS_Ragdoll.DebugMessage("pawn " + pawn.Name + " recieves knockback in damage worker");
+            }
+            return new DamageWorker.DamageResult();
+        }
+    }
+    */
 
 
     public class MapComponent_Toss : MapComponent
@@ -331,7 +396,62 @@ namespace TKS_Ragdoll
             //TKS_Ragdoll.DebugMessage("created list of positions between start and dest: "+String.Join(", ", this.line));
         }
 
-        public void CalculateTossFromBullet(int magnitude, float angle, float falloff, Thing thing, ThingDef weaponDef, Thing source)
+        public void CalculateTossFromMelee(int magnitude, Thing thing, ThingDef weaponDef, Thing source)
+        {
+            if (magnitude < 1) { return; }
+
+            this.tosserId = source.thingIDNumber;
+
+            float adjust = LoadedModManager.GetMod<TKS_Ragdoll>().GetSettings<TKS_RagdollSettings>().adjust;
+
+            TKS_Ragdoll.DebugMessage(thing.ThingID + " recieved " + magnitude.ToString() + " magnitude at position " + thing.Position + " from melee attack from " + source.ThingID);
+
+            Vector3 impactVector = thing.Position.ToVector3() - source.Position.ToVector3();
+
+            TKS_Ragdoll.DebugMessage(thing.ThingID + " normalized melee vector: " + impactVector.normalized.ToString());
+
+            float proneReduce = 1.0f;
+            if (thing is Pawn)
+            {
+                Pawn pawn = (Pawn)thing;
+
+                if (pawn.Downed)
+                {
+                    proneReduce = 0.33f;
+                    TKS_Ragdoll.DebugMessage(thing.ThingID + " is downed, reducing toss distance by " + proneReduce.ToString() + "%");
+                }
+            }
+
+            Vector3 tossVector = impactVector.normalized * (magnitude * proneReduce * adjust);
+
+            TKS_Ragdoll.DebugMessage(thing.ThingID + " toss Vector: " + tossVector.ToString());
+
+            Vector3 tossPoint = tossVector + thing.Position.ToVector3();
+            IntVec3 tossPointVec3 = tossPoint.ToIntVec3();
+
+            TKS_Ragdoll.DebugMessage(thing.ThingID + " tossing to " + tossPointVec3.ToString());
+
+            //stop pawns from moving
+            if (thing != null && thing is Pawn)
+            {
+                Pawn pawn = (Pawn)thing;
+                if (pawn.pather != null)
+                {
+                    pawn.pather.StopDead();
+                    //__instance.pather.StartPath(tossDest, PathEndMode.OnCell);
+                }
+
+                if (source != null)
+                {
+                    Find.BattleLog.Add(new BattleLogEntry_Event(pawn, Defs.Event_Tossed_Melee, source));
+                }
+            }
+
+            this.StartToss(thing.Position, tossPointVec3, source);
+
+        }
+
+        public void CalculateTossFromBullet(int magnitude, float falloff, Thing thing, ThingDef weaponDef, Thing source)
         {
             if (magnitude <1) { return; }
 
@@ -730,14 +850,14 @@ namespace TKS_Ragdoll
 
             if (thing == null || thing.Destroyed) { return; }
 
-            int stunTicks = 0;
+            int stunTicks = LoadedModManager.GetMod<TKS_Ragdoll>().GetSettings<TKS_RagdollSettings>().minStun;
 
             //do impact if any
             if (this.hitSomething != null)
             {
                 TKS_Ragdoll.DebugMessage(thing.ThingID+" hits "+this.hitSomething.ThingID);
 
-                stunTicks = 125;
+                stunTicks += 125;
             }
 
             //just pawns for now
@@ -786,13 +906,18 @@ namespace TKS_Ragdoll
                         TKS_Ragdoll.DebugMessage(thing.ThingID + " recieves damage at part " + partToHit.def.defName);
                         DamageInfo dinfo = new DamageInfo(DamageDefOf.Blunt, impactDamage, armorPenetration, this.tossAngle, null, partToHit, null, DamageInfo.SourceCategory.ThingOrUnknown, null, false, true);
 
+                        LogEntry entry = null;
                         if (this.instigator != null)
                         {
-                            LogEntry entry = new BattleLogEntry_TossImpact(pawn, Defs.Event_Tossed_Impact, instigator, this.hitSomething);
+                            entry = new BattleLogEntry_TossImpact(pawn, Defs.Event_Tossed_Impact, instigator, this.hitSomething);
                             Find.BattleLog.Add(entry);
                         }
+                        var result = pawn.TakeDamage(dinfo);
 
-                        pawn.TakeDamage(dinfo);
+                        if (entry != null)
+                        {
+                            result.AssociateWithLog((LogEntry_DamageResult)entry);
+                        }
                         
 
                     }
@@ -938,7 +1063,7 @@ namespace TKS_Ragdoll
             foreach (ThingDef def in thingDefs)
             {
                 def.comps.Add(new CompProperties_Tossable());
-                TKS_Ragdoll.DebugMessage("created corpse for "+def.defName+" with comps "+ String.Join(", ", def.comps));
+                //TKS_Ragdoll.DebugMessage("created corpse for "+def.defName+" with comps "+ String.Join(", ", def.comps));
                 yield return def;
             }
         }
@@ -1045,7 +1170,49 @@ namespace TKS_Ragdoll
             return true;
         }
     }
+    
+    [HarmonyPatch(typeof(Verb_MeleeAttackDamage))]
+    public static class Verb_MeleeAttackDamage_patches
+    {
+        [HarmonyPatch(typeof(Verb_MeleeAttackDamage), "ApplyMeleeDamageToTarget")]
+        [HarmonyPostfix]
+        public static void ApplyMeleeDamage_Postfix(LocalTargetInfo target, Verb_MeleeAttackDamage __instance)
+        {
+            TKS_Ragdoll.DebugMessage("ApplyMeleeDamage postfix firing");
 
+            if (__instance.EquipmentSource == null)
+            {
+                return;
+            }
+
+            Thing hitThing = (Thing)target;
+
+            if (hitThing == null) { return; };
+
+            TKS_Ragdoll.DebugMessage("melee hit on " + hitThing.ThingID);
+
+            CompTossable tossable = hitThing.TryGetComp<CompTossable>();
+
+            if (tossable == null) { return; }
+
+            ThingWithComps equipment = __instance.EquipmentSource;
+            ThingDef weaponDef = equipment.def;
+            Pawn casterPawn = __instance.CasterPawn;
+
+            TKS_Ragdoll.DebugMessage("pawn " + casterPawn.Name + " hits tossable " + hitThing.ThingID + " with " + equipment.def.defName);
+
+            ModExtension_MeleeToss tosser = weaponDef.GetModExtension<ModExtension_MeleeToss>();
+
+            if (tosser == null || tosser.tossMagnitude==0) { return; }
+
+            //float impactAngle = Quaternion.FromToRotation(casterPawn.Position.ToVector3(), hitThing.Position.ToVector3()).eulerAngles[1]);
+
+            tossable.CalculateTossFromMelee(tosser.tossMagnitude, hitThing, weaponDef, equipment);
+
+        }
+    }
+    
+    
     [HarmonyPatch(typeof(Bullet))]
     public static class Bullet_Patches
     {
@@ -1068,12 +1235,12 @@ namespace TKS_Ragdoll
 
             TKS_Ragdoll.DebugMessage(hitThing.ThingID + " hit with bullet, toss distance " + tossDistance.ToString()+", toss falloff "+tossFalloff.ToString());
 
-            float impactAngle = __instance.ExactRotation.eulerAngles.y;
+            //float impactAngle = __instance.ExactRotation.eulerAngles.y;
 
             Thing launcher = __instance.Launcher;
             ThingDef weaponDef = __instance.EquipmentDef;
 
-            tossable.CalculateTossFromBullet(tossDistance, impactAngle, tossFalloff, hitThing, weaponDef, launcher);
+            tossable.CalculateTossFromBullet(tossDistance, tossFalloff, hitThing, weaponDef, launcher);
 
         }
     }

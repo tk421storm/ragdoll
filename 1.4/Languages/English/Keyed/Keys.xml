@@ -1,6 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <LanguageData>
 	<TKSDebugPrint>Print debug info</TKSDebugPrint>
-	<TKSRagdollAdjust>Adjust all toss by this number (float).</TKSRagdollAdjust>
+	<TKSRagdollAdjust>Adjust toss</TKSRagdollAdjust>
+	<TKSRagdollAdjustToolTip>All tosses will be adjusted by this magnitude (default 1).</TKSRagdollAdjustToolTip>
+	<TKSRagdollMinStun>Minimum Stun ticks</TKSRagdollMinStun>
 	<TKSRagdollName>Ragdoll Physics</TKSRagdollName>
+	<TKSRagdollMinStunDescrip>Add x ticks of stun when any pawn lands after a toss (by default, pawns are only stunned if they impact something during the toss)</TKSRagdollMinStunDescrip>
 </LanguageData>
