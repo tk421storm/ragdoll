@@ -32,10 +32,9 @@
 		<defName>Event_Tossed_Impact</defName>
 		<rulePack>
 			<rulesStrings>
-				<li>r_logentry->[SUBJECT_definite] was [tossed] [against] [EDIFICE_definite].</li>
-				<li>r_logentry->[SUBJECT_definite] was [tossed] [against] [EDIFICE_definite] by [INITIATOR_definite].</li>
+				<li>r_logentry->[RECIPIENT_definite] was [tossed] [against] [EDIFICE_definite].</li>
 
-				<li>r_logentry->[SUBJECT_definite] [slammed] [against] [EDIFICE_definite].</li>
+				<li>r_logentry->[RECIPIENT_definite] [slammed] [against] [EDIFICE_definite].</li>
 
 				<li>tossed->thrown</li>
 				<li>tossed->blown</li>

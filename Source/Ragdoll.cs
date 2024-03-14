@@ -73,10 +73,11 @@ namespace TKS_Ragdoll
             Listing_Standard listingStandard = new Listing_Standard();
             listingStandard.Begin(inRect);
 
-            listingStandard.CheckboxLabeled("TKSDebugPrint".Translate(), ref settings.debugPrint);
+            listingStandard.CheckboxLabeled("TKSRagdollMass".Translate(), ref settings.adjustByMass);
             listingStandard.TextFieldNumericLabeled<int>("TKSRagdollMinStun".Translate(), ref settings.minStun, ref editBufferFloat);
             listingStandard.SubLabel("TKSRagdollMinStunDescrip".Translate(), 100.0f);
             this.SliderLabeled(listingStandard, "TKSRagdollAdjust".Translate()+": "+settings.adjust.ToString(), ref settings.adjust, "", 0.0f, 5.0f, "TKSRagdollAdjustToolTip".Translate());
+            listingStandard.CheckboxLabeled("TKSDebugPrint".Translate(), ref settings.debugPrint);
             listingStandard.End();
             base.DoSettingsWindowContents(inRect);
         }
@@ -95,36 +96,32 @@ namespace TKS_Ragdoll
 
         public int minStun = 0;
 
+        public bool adjustByMass = true;
+
         public override void ExposeData()
         {
             Scribe_Values.Look(ref debugPrint, "debugPrint");
             Scribe_Values.Look(ref adjust, "adjust");
             Scribe_Values.Look(ref minStun, "minStun");
+            Scribe_Values.Look(ref adjustByMass, "adjustByMass");
 
             base.ExposeData();
         }
     }
 
-    public class BattleLogEntry_TossImpact : BattleLogEntry_Event
+    public class BattleLogEntry_TossImpact : BattleLogEntry_DamageTaken
     {
-        public BattleLogEntry_TossImpact(Thing subject, RulePackDef eventDef, Thing initiator, Thing edifice) : base(subject, eventDef, initiator)
+
+        public BattleLogEntry_TossImpact() : base()
         {
-            if (subject is Pawn)
-            {
-                this.subjectPawn = (subject as Pawn);
-            }
-            else if (subject != null)
-            {
-                this.subjectThing = subject.def;
-            }
-            if (initiator is Pawn)
-            {
-                this.initiatorPawn = (initiator as Pawn);
-            }
-            else if (initiator != null)
-            {
-                this.initiatorThing = initiator.def;
-            }
+        }
+
+        public BattleLogEntry_TossImpact(Pawn subject, RulePackDef eventDef, Pawn initiator, Thing edifice) : base(subject, eventDef, initiator)
+        {
+            this.subject = subject;
+
+            this.initiator = initiator;
+
             this.eventDef = eventDef;
 
             this.edificeDef = edifice.def;
@@ -138,13 +135,42 @@ namespace TKS_Ragdoll
             return result;
         }
 
+        public override bool Concerns(Thing t)
+        {
+            return t == this.subject || t == this.initiator;
+        }
+
+        public override IEnumerable<Thing> GetConcerns()
+		{
+			if (this.subject != null)
+			{
+				yield return this.subject;
+			}
+			if (this.initiator != null)
+			{
+				yield return this.initiator;
+			}
+			yield break;
+		}
+
         public override void ExposeData()
         {
             base.ExposeData();
+            //Scribe_Defs.Look<RulePackDef>(ref this.eventDef, "eventDef");
             Scribe_Defs.Look<ThingDef>(ref this.edificeDef, "edificeDef");
+            //Scribe_References.Look<Pawn>(ref this.subject, "subjectPawn", true);
+            //Scribe_References.Look<Pawn>(ref this.initiator, "initiatorPawn", true);
         }
 
         protected ThingDef edificeDef;
+
+        protected Pawn subject;
+
+        protected Pawn initiator;
+
+        protected ThingDef initiatorThing;
+
+        protected RulePackDef eventDef;
     }
 
     public class ModExtension_BulletToss : DefModExtension
@@ -422,7 +448,23 @@ namespace TKS_Ragdoll
                 }
             }
 
-            Vector3 tossVector = impactVector.normalized * (magnitude * proneReduce * adjust);
+            //adjust by mass
+            bool adjustByMass = LoadedModManager.GetMod<TKS_Ragdoll>().GetSettings<TKS_RagdollSettings>().adjustByMass;
+            float massAdjust;
+
+            //only adjust by mass for pawns
+            if (adjustByMass && (thing is Pawn))
+            {
+                float massUsed = CollectionsMassCalculator.MassUsage<Thing>(new List<Thing>() { thing }, IgnorePawnsInventoryMode.DontIgnore, true, false);
+                massAdjust = 60.0f / massUsed;
+                TKS_Ragdoll.DebugMessage(thing.ThingID + " weighs " + massUsed.ToString() + ", adjusting by " + massAdjust.ToString());
+            }
+            else
+            {
+                massAdjust = 1.0f;
+            }
+
+            Vector3 tossVector = impactVector.normalized * (magnitude * proneReduce * adjust * massAdjust);
 
             TKS_Ragdoll.DebugMessage(thing.ThingID + " toss Vector: " + tossVector.ToString());
 
@@ -486,7 +528,23 @@ namespace TKS_Ragdoll
 
             TKS_Ragdoll.DebugMessage(thing.ThingID + " range of weapon & falloff reduces impact magnutide by "+reduceBy.ToString());
 
-            Vector3 tossVector = impactVector.normalized * (magnitude * proneReduce * adjust * (1.0f - reduceBy));
+            //adjust by mass
+            bool adjustByMass = LoadedModManager.GetMod<TKS_Ragdoll>().GetSettings<TKS_RagdollSettings>().adjustByMass;
+            float massAdjust;
+
+            //only adjust by mass for pawns
+            if (adjustByMass && (thing is Pawn))
+            {
+                float massUsed = CollectionsMassCalculator.MassUsage<Thing>(new List<Thing>() { thing }, IgnorePawnsInventoryMode.DontIgnore, true, false);
+                massAdjust = 60.0f / massUsed;
+                TKS_Ragdoll.DebugMessage(thing.ThingID + " weighs " + massUsed.ToString() + ", adjusting by " + massAdjust.ToString());
+            }
+            else
+            {
+                massAdjust = 1.0f;
+            }
+
+            Vector3 tossVector = impactVector.normalized * (magnitude * proneReduce * adjust * massAdjust * (1.0f - reduceBy));
 
             TKS_Ragdoll.DebugMessage(thing.ThingID + " toss Vector: " + tossVector.ToString());
 
@@ -525,6 +583,7 @@ namespace TKS_Ragdoll
             {
                 this.tosserId = explosion.thingIDNumber;
             }
+
             float damage = explosion.GetDamageAmountAt(thing.Position) / 10f;
 
             TKS_Ragdoll.DebugMessage(thing.ThingID + " recieved " + damage.ToString() + " damage at position "+thing.Position+" from explosion at position "+explosion.Position);
@@ -565,7 +624,22 @@ namespace TKS_Ragdoll
 
             TKS_Ragdoll.DebugMessage(thing.ThingID + " normalized explosion vector: " + impactVector.ToString());
 
-            Vector3 tossVector = impactVector * (damage * adjust);
+            //adjust by mass
+            bool adjustByMass = LoadedModManager.GetMod<TKS_Ragdoll>().GetSettings<TKS_RagdollSettings>().adjustByMass;
+            float massAdjust;
+
+            //only adjust by mass for pawns
+            if (adjustByMass && (thing is Pawn))
+            {
+                float massUsed = CollectionsMassCalculator.MassUsage<Thing>(new List<Thing>() { thing }, IgnorePawnsInventoryMode.DontIgnore, true, false);
+                massAdjust = 60.0f / massUsed;
+                TKS_Ragdoll.DebugMessage(thing.ThingID + " weighs " + massUsed.ToString()+", adjusting by "+massAdjust.ToString());
+            } else
+            {
+                massAdjust = 1.0f;
+            }
+
+            Vector3 tossVector = impactVector * (damage * adjust * massAdjust);
 
             TKS_Ragdoll.DebugMessage(thing.ThingID + " toss Vector: " + tossVector.ToString());
 
@@ -907,16 +981,17 @@ namespace TKS_Ragdoll
                         DamageInfo dinfo = new DamageInfo(DamageDefOf.Blunt, impactDamage, armorPenetration, this.tossAngle, null, partToHit, null, DamageInfo.SourceCategory.ThingOrUnknown, null, false, true);
 
                         LogEntry entry = null;
-                        if (this.instigator != null)
+                        if (this.instigator != null && this.instigator is Pawn)
                         {
-                            entry = new BattleLogEntry_TossImpact(pawn, Defs.Event_Tossed_Impact, instigator, this.hitSomething);
+                            entry = new BattleLogEntry_TossImpact(pawn, Defs.Event_Tossed_Impact, (Pawn)instigator, this.hitSomething);
                             Find.BattleLog.Add(entry);
                         }
                         var result = pawn.TakeDamage(dinfo);
 
                         if (entry != null)
                         {
-                            result.AssociateWithLog((LogEntry_DamageResult)entry);
+                            //this cast is unavailable in the game for some reason, so we'll skip it
+                            result.AssociateWithLog((BattleLogEntry_TossImpact)entry);
                         }
                         
 
@@ -1087,6 +1162,15 @@ namespace TKS_Ragdoll
                 return;
             }
 
+            //check for explosion types that shouldn't toss (or maybe will toss by an arbitrary amount?)
+            List<DamageDef> damageTypesToIgnore = new List<DamageDef>() { DamageDefOf.Extinguish, DamageDefOf.Smoke, DamageDefOf.ToxGas };
+
+            if (__instance.damType != null && damageTypesToIgnore.Contains(__instance.damType)) { 
+                TKS_Ragdoll.DebugMessage("ignoring damage of type "+ __instance.damType.defName);
+                return;
+            }
+
+
             foreach (Thing thing in c.GetThingList(__instance.Map))
             {
                 CompTossable tossable = thing.TryGetComp<CompTossable>();
@@ -1178,7 +1262,7 @@ namespace TKS_Ragdoll
         [HarmonyPostfix]
         public static void ApplyMeleeDamage_Postfix(LocalTargetInfo target, Verb_MeleeAttackDamage __instance)
         {
-            TKS_Ragdoll.DebugMessage("ApplyMeleeDamage postfix firing");
+            //TKS_Ragdoll.DebugMessage("ApplyMeleeDamage postfix firing");
 
             if (__instance.EquipmentSource == null)
             {
