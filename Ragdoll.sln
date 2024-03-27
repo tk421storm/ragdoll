@@ -7,14 +7,14 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ragdoll", "Ragdoll.csproj",
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Any CPU = Debug|Any CPU
-		Release|Any CPU = Release|Any CPU
+		1.4|Any CPU = 1.4|Any CPU
+		1.5|Any CPU = 1.5|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{A7D8DB0E-3892-4537-AFB2-F9F0B6D1EE33}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A7D8DB0E-3892-4537-AFB2-F9F0B6D1EE33}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A7D8DB0E-3892-4537-AFB2-F9F0B6D1EE33}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A7D8DB0E-3892-4537-AFB2-F9F0B6D1EE33}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A7D8DB0E-3892-4537-AFB2-F9F0B6D1EE33}.1.4|Any CPU.ActiveCfg = 1.4|Any CPU
+		{A7D8DB0E-3892-4537-AFB2-F9F0B6D1EE33}.1.4|Any CPU.Build.0 = 1.4|Any CPU
+		{A7D8DB0E-3892-4537-AFB2-F9F0B6D1EE33}.1.5|Any CPU.ActiveCfg = 1.5|Any CPU
+		{A7D8DB0E-3892-4537-AFB2-F9F0B6D1EE33}.1.5|Any CPU.Build.0 = 1.5|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

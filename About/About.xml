@@ -8,6 +8,7 @@
 	<supportedVersions>
 		<!-- the version(s) your mod supports -->
 		<li>1.4</li>
+		<li>1.5</li>
 	</supportedVersions>
 	<description>Adds physics around explosions to toss Pawns and Things! Includes framework for other mods to add to Melee and Ranged Weapons.</description>
 	<modDependencies>

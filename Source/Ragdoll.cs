@@ -3,6 +3,7 @@ using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -592,9 +593,20 @@ namespace TKS_Ragdoll
             {
                 TKS_Ragdoll.DebugMessage(explosion.ThingID + " no toss since no damage");
                 return;
+            } else if (explosion.radius==0) {
+                TKS_Ragdoll.DebugMessage(explosion.ThingID + " no toss since no radius (probably spew-style affect)");
+                return;
             }
 
-            this.damage = damage;
+            //adjust damage based on type (emp damage should toss less than explosion)
+            if (explosion.damType == DamageDefOf.Bomb)
+            {
+                this.damage = damage;
+            } else
+            {
+                TKS_Ragdoll.DebugMessage(explosion.ThingID + " reducing damage by 80% due to damage type "+explosion.damType);
+                this.damage = damage * .25f;
+            }
 
             float adjust = LoadedModManager.GetMod<TKS_Ragdoll>().GetSettings<TKS_RagdollSettings>().adjust;
 
@@ -639,7 +651,7 @@ namespace TKS_Ragdoll
                 massAdjust = 1.0f;
             }
 
-            Vector3 tossVector = impactVector * (damage * adjust * massAdjust);
+            Vector3 tossVector = impactVector * (this.damage * adjust * massAdjust);
 
             TKS_Ragdoll.DebugMessage(thing.ThingID + " toss Vector: " + tossVector.ToString());
 
@@ -904,7 +916,12 @@ namespace TKS_Ragdoll
                     //thing.Draw();
                     if (thing != null && !thing.Destroyed)
                     {
+#if v1_4
                         thing.DrawAt(tweenPoint);
+#else
+                        //thing.DynamicDrawPhaseAt(DrawPhase.ParallelPreDraw, tweenPoint);
+                        thing.DrawNowAt(tweenPoint);
+#endif
                     }
 
                     this.tweenProgress += 1;
@@ -959,7 +976,7 @@ namespace TKS_Ragdoll
 
                 if (impactDamage != 0)
                 {
-                    List<BodyPartDef> possibleImpacts = new List<BodyPartDef>() { BodyPartDefOf.Arm, BodyPartDefOf.Leg, BodyPartDefOf.Head, BodyPartDefOf.Torso, BodyPartDefOf.Body };
+                    List<BodyPartDef> possibleImpacts = new List<BodyPartDef>() { BodyPartDefOf.Arm, BodyPartDefOf.Leg, BodyPartDefOf.Head, BodyPartDefOf.Torso};
 
                     possibleImpacts.Shuffle();
 
@@ -1218,6 +1235,7 @@ namespace TKS_Ragdoll
             return true;
         }
 
+#if v1_4
         [HarmonyPatch(typeof(Thing), "Draw")]
         [HarmonyPrefix]
         public static bool Draw_patch(Thing __instance)
@@ -1237,7 +1255,29 @@ namespace TKS_Ragdoll
 
             return true;
         }
+#else
+        [HarmonyPatch(typeof(Thing), "DrawAt")]
+        [HarmonyPrefix]
+        public static bool DrawAt_patch(Thing __instance, Vector3 drawLoc, bool flip)
+        {
+            if (__instance is Pawn)
+            {
+                return true;
+            }
 
+            if (__instance.TryGetComp<CompTossable>() != null && __instance.TryGetComp<CompTossable>().tossing)
+            {
+                //TKS_Ragdoll.DebugMessage("overriding draw funciton for "+__instance.ThingID+" due to toss");
+
+                __instance.Graphic.Draw(__instance.TryGetComp<CompTossable>().tweenPoint, flip ? __instance.Rotation.Opposite : __instance.Rotation, __instance, 0f);
+                SilhouetteUtility.DrawGraphicSilhouette(__instance, __instance.TryGetComp<CompTossable>().tweenPoint);
+
+                return false;
+            }
+
+            return true;
+        }
+#endif
         [HarmonyPatch(typeof(Thing), "Kill")]
         [HarmonyPrefix]
         public static bool Kill_prefix(DamageInfo dinfo, Hediff exactCulprit, Thing __instance)
