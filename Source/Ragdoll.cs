@@ -709,10 +709,20 @@ namespace TKS_Ragdoll
 
             int currentTick = Find.TickManager.TicksGame;
 
+            //check if we're already tossing, add new vector for maximum fun
+            IntVec3 addVec = new IntVec3(0, 0, 0);
+            if (this.tossing)
+            {
+                addVec = this.destination - thing.Position;
+                TKS_Ragdoll.DebugMessage(thing.ThingID + " already being tossed, adding "+addVec+" to vector");
+                this.tossRate -= 1;
+                if (this.tossRate < 1) { this.tossRate = 1; }
+            } 
+
             this.tossing = true;
             this.progress = 1;
             this.tweenProgress = 1;
-            this.destination = dest;
+            this.destination = dest + addVec;
             this.hitSomething = null;
             this.start = start;
 
@@ -723,50 +733,6 @@ namespace TKS_Ragdoll
             DrawLine(this.start, this.destination);
 
             MapComponent_Toss tossComponent = map.GetComponent<MapComponent_Toss>();
-
-            /* instead of checking for obstructions all at once (which is heavy when many pawns/things are hit with the same explosion)
-             * we'll have the pawn/thing check just the next tile before each move
-            
-            TKS_Ragdoll.DebugMessage(thing.ThingID + " checking toss arc for obstructions");
-
-            //TKS_Ragdoll.DebugMessage(thing.ThingID + " using map component "+tossComponent.ToString());
-
-            int i = 0;
-            foreach(IntVec3 item in this.line)
-            {
-                IntVec3 point = this.line[i];
-
-                //TKS_Ragdoll.DebugMessage(thing.ThingID + " checking point "+point);
-
-                if (!tossComponent.ObstructionCheck(point))
-                {
-                    TKS_Ragdoll.DebugMessage(thing.ThingID + " stopping toss at impassable/out of bounds point "+point.ToString() +" (current toss arc "+String.Join(", ", this.line)+", i: "+i.ToString()+")");
-
-                    if (i<=1)
-                    {
-                        TKS_Ragdoll.DebugMessage(thing.ThingID + " impassable/out of bounds point cancels toss");
-                        this.tossing = false;
-                        return;
-                    }
-
-                    this.line = this.line.GetRange(0, i);
-                    this.destination = this.line.Last();
-
-                    TKS_Ragdoll.DebugMessage(thing.ThingID + " new toss arc: " + String.Join(", ", this.line));
-
-                    //check for impact
-                    Building edifice = point.GetEdifice(tossComponent.map);
-
-                        if (edifice != null)
-                    {
-                        this.hitSomething = edifice;
-                    }
-
-                    break;
-                }
-                i += 1;
-            }
-            */
 
             if (line[0]==line.Last())
             {
@@ -846,8 +812,6 @@ namespace TKS_Ragdoll
 
             int currentTick = Find.TickManager.TicksGame;
 
-            int tossRate = 4;
-
             IntVec3 currentPoint = thing.Position;
 
             if ((currentTick - this.startTick) % tossRate == 0)
@@ -871,8 +835,13 @@ namespace TKS_Ragdoll
                 {
                     Log.Warning("Cancelling toss to " + newPoint.ToString() + " due to obstruction, out of bounds");
 
+
+                    Building edifice = null;
                     //check for impact
-                    Building edifice = newPoint.GetEdifice(tossComponent.map);
+                    if (newPoint.InBounds(tossComponent.map))
+                    {
+                        edifice = newPoint.GetEdifice(tossComponent.map);
+                    }
 
                     if (edifice != null)
                     {
@@ -932,14 +901,15 @@ namespace TKS_Ragdoll
 
         }
 
-        public void StopToss()
+        public void StopToss(bool dead=false)
         {
             this.tossing = false;
             this.tosserId = 0;
+            this.tossRate = 4;
 
             ThingWithComps thing = this.parent;
 
-            if (thing == null || thing.Destroyed) { return; }
+            if (thing == null || thing.Destroyed || dead) { return; }
 
             int stunTicks = LoadedModManager.GetMod<TKS_Ragdoll>().GetSettings<TKS_RagdollSettings>().minStun;
 
@@ -1017,7 +987,7 @@ namespace TKS_Ragdoll
 
             }
 
-            Pawn_StanceTracker stances = pawn.stances;
+            Pawn_StanceTracker stances = pawn?.stances;
             if (stances != null)
             {
                 StunHandler stunner = stances.stunner;
@@ -1032,7 +1002,10 @@ namespace TKS_Ragdoll
             }
 
             //restart pather (?)
-            pawn.pather.Notify_Teleported_Int();
+            if (pawn.pather != null)
+            {
+                pawn.pather.Notify_Teleported_Int();
+            }
 
         }
 
@@ -1043,6 +1016,8 @@ namespace TKS_Ragdoll
         public Vector3 tweenPoint;
 
         private int tosserId = 0;
+
+        private int tossRate = 4;
 
         private Vector3 tossVector;
 
@@ -1182,7 +1157,7 @@ namespace TKS_Ragdoll
             //check for explosion types that shouldn't toss (or maybe will toss by an arbitrary amount?)
             List<DamageDef> damageTypesToIgnore = new List<DamageDef>() { DamageDefOf.Extinguish, DamageDefOf.Smoke, DamageDefOf.ToxGas };
 
-            if (__instance.damType != null && damageTypesToIgnore.Contains(__instance.damType)) { 
+            if (__instance.damType != null && (damageTypesToIgnore.Contains(__instance.damType) || __instance.damType.harmsHealth!=true)) { 
                 TKS_Ragdoll.DebugMessage("ignoring damage of type "+ __instance.damType.defName);
                 return;
             }
@@ -1288,7 +1263,7 @@ namespace TKS_Ragdoll
                 //dont let tossing things die (add option or something)
                 //__instance.HitPoints = 1;
                 //return false;
-                __instance.TryGetComp<CompTossable>().StopToss();
+                __instance.TryGetComp<CompTossable>().StopToss(true);
             }
 
             return true;
