@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.33920.266
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36203.30 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ragdoll", "Ragdoll.csproj", "{A7D8DB0E-3892-4537-AFB2-F9F0B6D1EE33}"
 EndProject
@@ -9,12 +9,15 @@ Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		1.4|Any CPU = 1.4|Any CPU
 		1.5|Any CPU = 1.5|Any CPU
+		1.6|Any CPU = 1.6|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{A7D8DB0E-3892-4537-AFB2-F9F0B6D1EE33}.1.4|Any CPU.ActiveCfg = 1.4|Any CPU
 		{A7D8DB0E-3892-4537-AFB2-F9F0B6D1EE33}.1.4|Any CPU.Build.0 = 1.4|Any CPU
 		{A7D8DB0E-3892-4537-AFB2-F9F0B6D1EE33}.1.5|Any CPU.ActiveCfg = 1.5|Any CPU
 		{A7D8DB0E-3892-4537-AFB2-F9F0B6D1EE33}.1.5|Any CPU.Build.0 = 1.5|Any CPU
+		{A7D8DB0E-3892-4537-AFB2-F9F0B6D1EE33}.1.6|Any CPU.ActiveCfg = 1.6|Any CPU
+		{A7D8DB0E-3892-4537-AFB2-F9F0B6D1EE33}.1.6|Any CPU.Build.0 = 1.6|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

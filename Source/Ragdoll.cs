@@ -303,7 +303,11 @@ namespace TKS_Ragdoll
                 }
 
                 //override to force the thing to tick
+#if v1_6
+                thing.DoTick();
+#else
                 thing.Tick();
+#endif
             }
 
             foreach (Thing thing in doneTossing)

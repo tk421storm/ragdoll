@@ -1,0 +1,65 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+	<RulePackDef>
+		<defName>Event_Tossed_Explosion</defName>
+		<rulePack>
+			<rulesStrings>
+				<li>r_logentry->[SUBJECT_definite] was [tossed] by the explosion.</li>
+				<li>r_logentry->[SUBJECT_definite] was [tossed] by [INITIATOR_definite]'s explosion.</li>
+
+				<li>tossed(p=3)->tossed</li>
+				<li>tossed->thrown</li>
+				<li>tossed->blown away</li>
+			</rulesStrings>
+		</rulePack>
+	</RulePackDef>
+
+	<RulePackDef>
+		<defName>Event_Tossed_Bullet</defName>
+		<rulePack>
+			<rulesStrings>
+				<li>r_logentry->[SUBJECT_definite] was [tossed] by the bullet's impact.</li>
+				<li>r_logentry->[SUBJECT_definite] was [tossed] by [INITIATOR_definite]'s bullet.</li>
+
+				<li>tossed->thrown</li>
+				<li>tossed->blown away</li>
+				<li>tossed->knocked back</li>
+			</rulesStrings>
+		</rulePack>
+	</RulePackDef>
+
+	<RulePackDef>
+		<defName>Event_Tossed_Impact</defName>
+		<rulePack>
+			<rulesStrings>
+				<li>r_logentry->[RECIPIENT_definite] was [tossed] [against] [EDIFICE_definite].</li>
+
+				<li>r_logentry->[RECIPIENT_definite] [slammed] [against] [EDIFICE_definite].</li>
+
+				<li>tossed->thrown</li>
+				<li>tossed->blown</li>
+				<li>tossed->knocked back</li>
+
+				<li>against->against</li>
+				<li>against->into</li>
+				
+				<li>slammed->slammed</li>
+			</rulesStrings>
+		</rulePack>
+	</RulePackDef>
+
+	<RulePackDef>
+		<defName>Event_Tossed_Melee</defName>
+		<rulePack>
+			<rulesStrings>
+				<li>r_logentry->[SUBJECT_definite] was [tossed].</li>
+				<li>r_logentry->[SUBJECT_definite] was [tossed] by [INITIATOR_definite].</li>
+
+				<li>tossed->thrown</li>
+				<li>tossed->tossed</li>
+				<li>tossed->knocked back</li>
+			</rulesStrings>
+		</rulePack>
+	</RulePackDef>
+
+</Defs>

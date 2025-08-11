@@ -36,6 +36,15 @@
     <LangVersion>7.3</LangVersion>
     <ErrorReport>prompt</ErrorReport>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == '1.6|AnyCPU'">
+    <OutputPath>1.6\Assemblies\</OutputPath>
+    <DefineConstants>TRACE;v1_6</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="Source\Ragdoll.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -48,12 +57,17 @@
     <Content Include="1.5\Defs\RulePackDef.xml" />
     <Content Include="1.5\Languages\English\Keyed\Keys.xml" />
     <Content Include="1.5\Patches\Patches.xml" />
+    <Content Include="1.6\Defs\RulePackDef.xml" />
+    <Content Include="1.6\Languages\English\Keyed\Keys.xml" />
+    <Content Include="1.6\Patches\Patches.xml" />
     <Content Include="About\About.xml" />
     <None Include="1.5\Patches\Examples.xml.bak" />
+    <None Include="1.6\Patches\Examples.xml.bak" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="1.4\Assemblies\" />
     <Folder Include="1.5\Assemblies\" />
+    <Folder Include="1.6\Assemblies\" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="0Harmony">
