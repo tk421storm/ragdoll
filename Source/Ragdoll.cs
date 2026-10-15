@@ -303,7 +303,7 @@ namespace TKS_Ragdoll
                 }
 
                 //override to force the thing to tick
-#if v1_6
+#if !(v1_4 || v1_5)
                 thing.DoTick();
 #else
                 thing.Tick();
