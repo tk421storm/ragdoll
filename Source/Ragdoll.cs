@@ -327,7 +327,8 @@ namespace TKS_Ragdoll
 
         public bool ObstructionCheck(IntVec3 point)
         {
-            return (this.map.pathing.Normal.pathGrid.Walkable(point) && GenGrid.InBounds(point, map));
+            //closed doors are walkable for pathing, so they have to be checked separately (after InBounds, GetDoor needs a valid cell)
+            return (this.map.pathing.Normal.pathGrid.Walkable(point) && GenGrid.InBounds(point, map) && (point.GetDoor(map)?.Open ?? true));
         }
 
         public override void FinalizeInit()
