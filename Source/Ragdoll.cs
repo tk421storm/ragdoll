@@ -1259,7 +1259,7 @@ namespace TKS_Ragdoll
 #endif
         [HarmonyPatch(typeof(Thing), "Kill")]
         [HarmonyPrefix]
-        public static bool Kill_prefix(DamageInfo dinfo, Hediff exactCulprit, Thing __instance)
+        public static bool Kill_prefix(Thing __instance)
         {
             //TKS_Ragdoll.DebugMessage(__instance.ThingID + " running kill prefix");
             if (__instance.TryGetComp<CompTossable>() != null && __instance.TryGetComp<CompTossable>().tossing)
