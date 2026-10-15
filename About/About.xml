@@ -5,6 +5,7 @@
 	<author>tk421storm</author>
 	<packageId>tk421storm.Ragdoll</packageId>
 	<!-- a unique identifier for your mod. Must contain only a-z and periods, no spaces. -->
+	<url>https://github.com/tk421storm/ragdoll</url>
 	<supportedVersions>
 		<!-- the version(s) your mod supports -->
 		<li>1.4</li>
