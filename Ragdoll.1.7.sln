@@ -1,0 +1,19 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ragdoll.1.7", "Ragdoll.1.7.csproj", "{CCCAB409-AF3F-45F6-BF94-34466F27696E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		1.7|Any CPU = 1.7|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CCCAB409-AF3F-45F6-BF94-34466F27696E}.1.7|Any CPU.ActiveCfg = 1.7|Any CPU
+		{CCCAB409-AF3F-45F6-BF94-34466F27696E}.1.7|Any CPU.Build.0 = 1.7|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
