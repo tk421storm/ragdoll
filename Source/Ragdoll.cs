@@ -1147,6 +1147,9 @@ namespace TKS_Ragdoll
     [HarmonyPatch(typeof(Explosion))]
     public static class Explosion_patches
     {
+        //explosion damage types that shouldn't toss. Built once - AffectCell runs for every cell of every explosion
+        private static readonly List<DamageDef> damageTypesToIgnore = new List<DamageDef>() { DamageDefOf.Extinguish, DamageDefOf.Smoke, DamageDefOf.ToxGas };
+
         [HarmonyPatch(typeof(Explosion), "AffectCell")]
         [HarmonyPostfix]
 
@@ -1162,8 +1165,6 @@ namespace TKS_Ragdoll
             }
 
             //check for explosion types that shouldn't toss (or maybe will toss by an arbitrary amount?)
-            List<DamageDef> damageTypesToIgnore = new List<DamageDef>() { DamageDefOf.Extinguish, DamageDefOf.Smoke, DamageDefOf.ToxGas };
-
             if (__instance.damType != null && (damageTypesToIgnore.Contains(__instance.damType) || __instance.damType.harmsHealth!=true)) { 
                 TKS_Ragdoll.DebugMessage("ignoring damage of type "+ __instance.damType.defName);
                 return;
@@ -1194,9 +1195,11 @@ namespace TKS_Ragdoll
             if (__instance is Pawn) { return true; }
 
             //TKS_Ragdoll.DebugMessage(__instance.ThingID + " running destroy prefix");
-            if (__instance.TryGetComp<CompTossable>() != null && __instance.TryGetComp<CompTossable>().tossing)
+            //one comp lookup - this runs for every thing destroyed or despawned
+            CompTossable tossable = __instance.TryGetComp<CompTossable>();
+            if (tossable != null && tossable.tossing)
             {
-                __instance.TryGetComp<CompTossable>().StopToss();
+                tossable.StopToss();
             }
 
             return true;
@@ -1209,9 +1212,11 @@ namespace TKS_Ragdoll
             //TKS_Ragdoll.DebugMessage(__instance.ThingID + " running despawn prefix");
             if (__instance is Pawn) { return true; }
 
-            if (__instance.TryGetComp<CompTossable>() != null && __instance.TryGetComp<CompTossable>().tossing)
+            //one comp lookup - this runs for every thing destroyed or despawned
+            CompTossable tossable = __instance.TryGetComp<CompTossable>();
+            if (tossable != null && tossable.tossing)
             {
-                __instance.TryGetComp<CompTossable>().StopToss();
+                tossable.StopToss();
             }
 
             return true;
@@ -1227,11 +1232,13 @@ namespace TKS_Ragdoll
                 return true;
             }
 
-            if (__instance.TryGetComp<CompTossable>() != null && __instance.TryGetComp<CompTossable>().tossing)
+            //one comp lookup - this runs for every drawn thing, every frame
+            CompTossable tossable = __instance.TryGetComp<CompTossable>();
+            if (tossable != null && tossable.tossing)
             {
                 //TKS_Ragdoll.DebugMessage("overriding draw funciton for "+__instance.ThingID+" due to toss");
 
-                __instance.DrawAt(__instance.TryGetComp<CompTossable>().tweenPoint);
+                __instance.DrawAt(tossable.tweenPoint);
                 return false;                
             }
 
@@ -1247,12 +1254,14 @@ namespace TKS_Ragdoll
                 return true;
             }
 
-            if (__instance.TryGetComp<CompTossable>() != null && __instance.TryGetComp<CompTossable>().tossing)
+            //one comp lookup - this runs for every drawn thing, every frame
+            CompTossable tossable = __instance.TryGetComp<CompTossable>();
+            if (tossable != null && tossable.tossing)
             {
                 //TKS_Ragdoll.DebugMessage("overriding draw funciton for "+__instance.ThingID+" due to toss");
 
-                __instance.Graphic.Draw(__instance.TryGetComp<CompTossable>().tweenPoint, flip ? __instance.Rotation.Opposite : __instance.Rotation, __instance, 0f);
-                SilhouetteUtility.DrawGraphicSilhouette(__instance, __instance.TryGetComp<CompTossable>().tweenPoint);
+                __instance.Graphic.Draw(tossable.tweenPoint, flip ? __instance.Rotation.Opposite : __instance.Rotation, __instance, 0f);
+                SilhouetteUtility.DrawGraphicSilhouette(__instance, tossable.tweenPoint);
 
                 return false;
             }
@@ -1265,12 +1274,13 @@ namespace TKS_Ragdoll
         public static bool Kill_prefix(Thing __instance)
         {
             //TKS_Ragdoll.DebugMessage(__instance.ThingID + " running kill prefix");
-            if (__instance.TryGetComp<CompTossable>() != null && __instance.TryGetComp<CompTossable>().tossing)
+            CompTossable tossable = __instance.TryGetComp<CompTossable>();
+            if (tossable != null && tossable.tossing)
             {
                 //dont let tossing things die (add option or something)
                 //__instance.HitPoints = 1;
                 //return false;
-                __instance.TryGetComp<CompTossable>().StopToss(true);
+                tossable.StopToss(true);
             }
 
             return true;
