@@ -302,12 +302,14 @@ namespace TKS_Ragdoll
                     continue;
                 }
 
-                //override to force the thing to tick
-#if !(v1_4 || v1_5)
-                thing.DoTick();
-#else
-                thing.Tick();
-#endif
+                //items and corpses don't tick every tick (their tickerType isn't Normal), so tick the toss comp ourselves.
+                //1.6's DoTick only ticks Normal things, so calling it left items and corpses frozen. Only the toss comp is
+                //ticked - Thing.Tick in 1.4/1.5 also ran every other comp an extra time (e.g. rot). Normal things already
+                //tick their comps, so they're skipped here to avoid tossing them at double speed
+                if (thing.def.tickerType != TickerType.Normal)
+                {
+                    tossable.CompTick();
+                }
             }
 
             foreach (Thing thing in doneTossing)
