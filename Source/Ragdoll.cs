@@ -24,11 +24,14 @@ namespace TKS_Ragdoll
     public class TKS_Ragdoll : Mod
     {
 
-        TKS_RagdollSettings settings;
+        static TKS_RagdollSettings settings;
+
+        //check this before building a debug string, so the string is only built when it will be printed
+        public static bool DebugEnabled => settings != null && settings.debugPrint;
 
         public static void DebugMessage(string message)
         {
-            if (LoadedModManager.GetMod<TKS_Ragdoll>().GetSettings<TKS_RagdollSettings>().debugPrint)
+            if (DebugEnabled)
             {
                 Log.Message(message);
             }
@@ -36,7 +39,7 @@ namespace TKS_Ragdoll
 
         public TKS_Ragdoll(ModContentPack content) : base(content)
         {
-            this.settings = GetSettings<TKS_RagdollSettings>();
+            settings = GetSettings<TKS_RagdollSettings>();
 
             Harmony harmony = new Harmony("TKS_Ragdoll");
             //Harmony.DEBUG = true;
@@ -78,6 +81,9 @@ namespace TKS_Ragdoll
             listingStandard.TextFieldNumericLabeled<int>("TKSRagdollMinStun".Translate(), ref settings.minStun, ref editBufferFloat);
             listingStandard.SubLabel("TKSRagdollMinStunDescrip".Translate(), 100.0f);
             this.SliderLabeled(listingStandard, "TKSRagdollAdjust".Translate()+": "+settings.adjust.ToString(), ref settings.adjust, "", 0.0f, 5.0f, "TKSRagdollAdjustToolTip".Translate());
+#if !v1_4
+            listingStandard.CheckboxLabeled("TKSRagdollUseJump".Translate(), ref settings.useJump, "TKSRagdollUseJumpToolTip".Translate());
+#endif
             listingStandard.CheckboxLabeled("TKSDebugPrint".Translate(), ref settings.debugPrint);
             listingStandard.End();
             base.DoSettingsWindowContents(inRect);
@@ -99,12 +105,16 @@ namespace TKS_Ragdoll
 
         public bool adjustByMass = true;
 
+        //toss with vanilla's PawnFlyer (jump packs, fleshbeasts) instead of the tween. Not available on 1.4
+        public bool useJump = false;
+
         public override void ExposeData()
         {
             Scribe_Values.Look(ref debugPrint, "debugPrint");
             Scribe_Values.Look(ref adjust, "adjust");
             Scribe_Values.Look(ref minStun, "minStun");
             Scribe_Values.Look(ref adjustByMass, "adjustByMass");
+            Scribe_Values.Look(ref useJump, "useJump", false);
 
             base.ExposeData();
         }
@@ -268,11 +278,27 @@ namespace TKS_Ragdoll
 
         private List<Thing> tossingThings;
 
+        //flyers launched by jump tosses (thingIDNumber), so landing only applies impact/stun to our own flyers. Not saved -
+        //a flight is under a second, and after a load the thing just lands without the impact or stun
+        private HashSet<int> jumpFlyers;
+
         public MapComponent_Toss(Map map) : base(map)
         {
             this.tossingIDs = new List<int>();
 
             this.tossingThings = new List<Thing>();
+
+            this.jumpFlyers = new HashSet<int>();
+        }
+
+        public void AddJumpFlyer(Thing flyer)
+        {
+            this.jumpFlyers.Add(flyer.thingIDNumber);
+        }
+
+        public bool RemoveJumpFlyer(Thing flyer)
+        {
+            return this.jumpFlyers.Remove(flyer.thingIDNumber);
         }
 
         public override void ExposeData()
@@ -768,6 +794,13 @@ namespace TKS_Ragdoll
             this.tossVector = -(dest.ToVector3() - start.ToVector3()).normalized;
             this.tossAngle = Vector3.Angle(start.ToVector3(), dest.ToVector3());
 
+#if !v1_4
+            if (LoadedModManager.GetMod<TKS_Ragdoll>().GetSettings<TKS_RagdollSettings>().useJump && StartJump(map))
+            {
+                return;
+            }
+#endif
+
             if (!(thing is Pawn))
             {
                 map.Tossers().TossThis(thing);
@@ -907,6 +940,51 @@ namespace TKS_Ragdoll
 
 
         }
+
+#if !v1_4
+        //jump toss style: fly to the last clear cell of the line with vanilla's PawnFlyer. Returns false if the flyer
+        //couldn't be made, so the caller falls back to the tween
+        private bool StartJump(Map map)
+        {
+            ThingWithComps thing = this.parent;
+            MapComponent_Toss tossComponent = map.Tossers();
+
+            //stop where the tween would: before the first cell that's blocked (wall, closed door, map edge)
+            int landing = 0;
+            for (int i = 1; i < this.line.Count; i++)
+            {
+                if (!tossComponent.ObstructionCheck(this.line[i]))
+                {
+                    if (this.line[i].InBounds(map))
+                    {
+                        this.hitSomething = this.line[i].GetEdifice(map);
+                    }
+                    break;
+                }
+                landing = i;
+            }
+
+            //StopToss bases the impact damage on how far along the line the toss got, as the tween does at the blocked cell
+            this.progress = landing + 1;
+
+            //not tossing while in the air: the thing is despawned inside the flyer, and StopToss runs on landing
+            this.tossing = false;
+
+            if (landing == 0)
+            {
+                //blocked straight away - impact (if any) without moving
+                StopToss();
+                return true;
+            }
+
+            if (TKS_Ragdoll.DebugEnabled)
+            {
+                TKS_Ragdoll.DebugMessage(thing.ThingID + " jumping to " + this.line[landing] + (this.hitSomething != null ? ", will hit " + this.hitSomething.ThingID : ""));
+            }
+
+            return JumpToss.Launch(thing, this.line[landing], map);
+        }
+#endif
 
         public void StopToss(bool dead=false)
         {
@@ -1049,6 +1127,95 @@ namespace TKS_Ragdoll
 
     }
 
+#if !v1_4
+    //launches things with vanilla's PawnFlyer for the jump toss style
+    public static class JumpToss
+    {
+        //PawnFlyer.MakeFlyer only takes pawns, so items and corpses get these set directly (same fields in 1.5 and 1.6)
+        private static readonly AccessTools.FieldRef<PawnFlyer, Vector3> startVecRef = AccessTools.FieldRefAccess<PawnFlyer, Vector3>("startVec");
+        private static readonly AccessTools.FieldRef<PawnFlyer, IntVec3> destCellRef = AccessTools.FieldRefAccess<PawnFlyer, IntVec3>("destCell");
+        private static readonly AccessTools.FieldRef<PawnFlyer, float> flightDistanceRef = AccessTools.FieldRefAccess<PawnFlyer, float>("flightDistance");
+
+        public static bool Launch(Thing thing, IntVec3 dest, Map map)
+        {
+            PawnFlyer flyer;
+
+            if (thing is Pawn pawn)
+            {
+                //as JumpUtility.DoJump does: the flyer suspends the pawn's job and restores it (and drafting) on landing
+                bool selected = Find.Selector.IsSelected(pawn);
+                flyer = PawnFlyer.MakeFlyer(ThingDefOf.PawnFlyer, pawn, dest, null, null);
+                if (flyer == null)
+                {
+                    return false;
+                }
+                map.Tossers().AddJumpFlyer(flyer);
+                GenSpawn.Spawn(flyer, dest, map);
+                if (selected)
+                {
+                    Find.Selector.Select(pawn, false, false);
+                }
+                return true;
+            }
+
+            //items and corpses: build the flyer the way MakeFlyer does for a pawn
+            IntVec3 start = thing.Position;
+            flyer = (PawnFlyer)ThingMaker.MakeThing(ThingDefOf.PawnFlyer);
+            startVecRef(flyer) = thing.TrueCenter();
+            flyer.Rotation = thing.Rotation;
+            flightDistanceRef(flyer) = start.DistanceTo(dest);
+            destCellRef(flyer) = dest;
+
+            thing.DeSpawn(DestroyMode.WillReplace);
+            if (!flyer.GetDirectlyHeldThings().TryAdd(thing))
+            {
+                //put it back where it was
+                GenSpawn.Spawn(thing, start, map);
+                return true;
+            }
+
+            map.Tossers().AddJumpFlyer(flyer);
+            GenSpawn.Spawn(flyer, dest, map);
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(PawnFlyer))]
+    public static class PawnFlyer_patches
+    {
+        //remember what one of our flyers is carrying - it's dropped (and the flyer emptied) during RespawnPawn
+        [HarmonyPatch(typeof(PawnFlyer), "RespawnPawn")]
+        [HarmonyPrefix]
+        public static void RespawnPawn_Prefix(PawnFlyer __instance, out Thing __state)
+        {
+            __state = null;
+
+            ThingOwner held = __instance.GetDirectlyHeldThings();
+            if (__instance.Map != null && held.Count > 0 && __instance.Map.Tossers().RemoveJumpFlyer(__instance))
+            {
+                __state = held[0];
+            }
+        }
+
+        //landed: impact damage and stun, as at the end of a tween
+        [HarmonyPatch(typeof(PawnFlyer), "RespawnPawn")]
+        [HarmonyPostfix]
+        public static void RespawnPawn_Postfix(Thing __state)
+        {
+            if (__state == null || !__state.Spawned)
+            {
+                return;
+            }
+
+            if (TKS_Ragdoll.DebugEnabled)
+            {
+                TKS_Ragdoll.DebugMessage(__state.ThingID + " jump landed at " + __state.Position);
+            }
+            __state.TryGetComp<CompTossable>()?.StopToss();
+        }
+    }
+#endif
+
     public class CompProperties_Tossable : CompProperties
     {
         public CompProperties_Tossable()
@@ -1150,6 +1317,9 @@ namespace TKS_Ragdoll
         //explosion damage types that shouldn't toss. Built once - AffectCell runs for every cell of every explosion
         private static readonly List<DamageDef> damageTypesToIgnore = new List<DamageDef>() { DamageDefOf.Extinguish, DamageDefOf.Smoke, DamageDefOf.ToxGas };
 
+        //reused copy of a cell's things for AffectCell (explosions run on the main thread, one cell at a time)
+        private static readonly List<Thing> tmpThings = new List<Thing>();
+
         [HarmonyPatch(typeof(Explosion), "AffectCell")]
         [HarmonyPostfix]
 
@@ -1171,8 +1341,16 @@ namespace TKS_Ragdoll
             }
 
 
-            foreach (Thing thing in c.GetThingList(__instance.Map))
+            //loop over a copy: a jump toss despawns the thing into its flyer, which removes it from the cell's thing list
+            tmpThings.Clear();
+            tmpThings.AddRange(c.GetThingList(__instance.Map));
+            foreach (Thing thing in tmpThings)
             {
+                if (!thing.Spawned)
+                {
+                    continue;
+                }
+
                 CompTossable tossable = thing.TryGetComp<CompTossable>();
 
                 if (tossable != null)
@@ -1180,6 +1358,7 @@ namespace TKS_Ragdoll
                     tossable.CalculateTossFromExplosion(__instance, thing);
                 }
             }
+            tmpThings.Clear();
         }
     }
    

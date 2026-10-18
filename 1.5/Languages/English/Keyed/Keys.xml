@@ -7,4 +7,6 @@
 	<TKSRagdollName>Ragdoll Physics</TKSRagdollName>
 	<TKSRagdollMinStunDescrip>Add x ticks of stun when any pawn lands after a toss (by default, pawns are only stunned if they impact something during the toss)</TKSRagdollMinStunDescrip>
 	<TKSRagdollMass>Mass affects toss distance</TKSRagdollMass>
+	<TKSRagdollUseJump>Use vanilla jump flight for tosses</TKSRagdollUseJump>
+	<TKSRagdollUseJumpToolTip>Tossed pawns, items and corpses fly in an arc with a shadow, the way jump packs and fleshbeasts do, instead of Ragdoll's own movement (tween, the default).\n\nCompared to tween:\n- While in the air they can't be shot or hit again.\n- A second explosion won't add to a toss that's already in the air.\n- They fly straight to where they land, over the cells in between instead of through them.</TKSRagdollUseJumpToolTip>
 </LanguageData>
