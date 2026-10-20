@@ -986,7 +986,7 @@ namespace TKS_Ragdoll
         }
 #endif
 
-        public void StopToss(bool dead=false)
+        public void StopToss(bool dead=false, bool landedFromJump=false)
         {
             this.tossing = false;
             this.tosserId = 0;
@@ -1087,7 +1087,9 @@ namespace TKS_Ragdoll
             }
 
             //restart pather (?)
-            if (pawn.pather != null)
+            //not after a jump: the flyer has already restored the pawn's job, which set a new path - stopping the pather here leaves
+            //that job waiting forever for a pather that isn't moving (the pawn freezes). the respawn reset the pather anyway
+            if (pawn.pather != null && !landedFromJump)
             {
                 pawn.pather.Notify_Teleported_Int();
             }
@@ -1211,7 +1213,7 @@ namespace TKS_Ragdoll
             {
                 TKS_Ragdoll.DebugMessage(__state.ThingID + " jump landed at " + __state.Position);
             }
-            __state.TryGetComp<CompTossable>()?.StopToss();
+            __state.TryGetComp<CompTossable>()?.StopToss(landedFromJump: true);
         }
     }
 #endif
