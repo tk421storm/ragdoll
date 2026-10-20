@@ -296,6 +296,11 @@ namespace TKS_Ragdoll
             this.jumpFlyers.Add(flyer.thingIDNumber);
         }
 
+        public bool IsJumpFlyer(Thing flyer)
+        {
+            return this.jumpFlyers.Contains(flyer.thingIDNumber);
+        }
+
         public bool RemoveJumpFlyer(Thing flyer)
         {
             return this.jumpFlyers.Remove(flyer.thingIDNumber);
@@ -1185,6 +1190,28 @@ namespace TKS_Ragdoll
     [HarmonyPatch(typeof(PawnFlyer))]
     public static class PawnFlyer_patches
     {
+        //vanilla jumps all peak at heightFactor (2) cells whatever the distance; tosses rise this much per cell flown instead
+        private const float jumpHeightPerCell = 0.1f;
+
+        private static readonly AccessTools.FieldRef<PawnFlyer, float> effectiveHeightRef = AccessTools.FieldRefAccess<PawnFlyer, float>("effectiveHeight");
+        private static readonly AccessTools.FieldRef<PawnFlyer, float> flightDistanceRef = AccessTools.FieldRefAccess<PawnFlyer, float>("flightDistance");
+
+        //lower our flyers' arc (effectiveHeight is the 0-1 parabola for this tick, set by DrawPos itself)
+        [HarmonyPatch(typeof(PawnFlyer), nameof(PawnFlyer.DrawPos), MethodType.Getter)]
+        [HarmonyPostfix]
+        public static void DrawPos_Postfix(PawnFlyer __instance, ref Vector3 __result)
+        {
+            Map map = __instance.Map;
+            if (map == null || !map.Tossers().IsJumpFlyer(__instance))
+            {
+                return;
+            }
+
+            float vanillaPeak = __instance.def.pawnFlyer.heightFactor;
+            float peak = Mathf.Min(jumpHeightPerCell * flightDistanceRef(__instance), vanillaPeak);
+            __result.z -= (vanillaPeak - peak) * effectiveHeightRef(__instance);
+        }
+
         //remember what one of our flyers is carrying - it's dropped (and the flyer emptied) during RespawnPawn
         [HarmonyPatch(typeof(PawnFlyer), "RespawnPawn")]
         [HarmonyPrefix]
