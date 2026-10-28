@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+	<!-- add toss to melee weapons -->
+	<Operation Class="PatchOperationConditional">
+		<xpath>Defs/ThingDef[defName="MeleeWeapon_Mace"]/modExtensions</xpath>
+		<nomatch Class="PatchOperationAdd">
+			<xpath>Defs/ThingDef[defName="MeleeWeapon_Mace"]</xpath>
+			<value>
+				<modExtensions />
+			</value>
+		</nomatch>
+	</Operation>
+
+	<Operation Class="PatchOperationAdd">
+		<xpath>Defs/ThingDef[defName="MeleeWeapon_Mace"]/modExtensions</xpath>
+		<value>
+			<li Class="TKS_Ragdoll.ModExtension_MeleeToss">
+				<!-- the number of tiles the bullets impact should push the pawn/thing (int)-->
+				<tossMagnitude>3</tossMagnitude>
+			</li>
+		</value>
+	</Operation>
+
+	<!-- add toss to ranged weapons (through their corresponding bullets) -->
+	<Operation Class="PatchOperationConditional">
+		<xpath>Defs/ThingDef[defName="Bullet_Shotgun"]</xpath>
+		<nomatch Class="PatchOperationAdd">
+			<xpath>Defs/ThingDef[defName="Bullet_Shotgun"]</xpath>
+			<value>
+				<modExtensions />
+			</value>
+		</nomatch>
+	</Operation>
+	
+	<Operation Class="PatchOperationAdd">
+		<xpath>Defs/ThingDef[defName="Bullet_Shotgun"]</xpath>
+		<value>
+			<modExtensions>
+				<li Class="TKS_Ragdoll.ModExtension_BulletToss">
+					<!-- the number of tiles the bullets impact should push the pawn/thing (int)-->
+					<tossMagnitude>3</tossMagnitude>
+					<!-- how much falloff from distance to range of weapon - 0 = no falloff, 1 = linear falloff (float)-->
+					<tossFalloff>1</tossFalloff>
+				</li>
+			</modExtensions>
+		</value>
+	</Operation>
+</Defs>
