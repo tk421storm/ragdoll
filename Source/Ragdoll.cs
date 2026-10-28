@@ -1195,11 +1195,14 @@ namespace TKS_Ragdoll
 
         private static readonly AccessTools.FieldRef<PawnFlyer, float> effectiveHeightRef = AccessTools.FieldRefAccess<PawnFlyer, float>("effectiveHeight");
         private static readonly AccessTools.FieldRef<PawnFlyer, float> flightDistanceRef = AccessTools.FieldRefAccess<PawnFlyer, float>("flightDistance");
+        private static readonly AccessTools.FieldRef<PawnFlyer, Vector3> groundPosRef = AccessTools.FieldRefAccess<PawnFlyer, Vector3>("groundPos");
+        private static readonly AccessTools.FieldRef<PawnFlyer, Vector3> effectivePosRef = AccessTools.FieldRefAccess<PawnFlyer, Vector3>("effectivePos");
 
-        //lower our flyers' arc (effectiveHeight is the 0-1 parabola for this tick, set by DrawPos itself)
-        [HarmonyPatch(typeof(PawnFlyer), nameof(PawnFlyer.DrawPos), MethodType.Getter)]
+        //lower our flyers' arc. vanilla draws the pawn at effectivePos (not DrawPos), so rebuild it here with our peak -
+        //same formula as vanilla, written whole rather than adjusted, since 1.6 skips the recompute within a tick
+        [HarmonyPatch(typeof(PawnFlyer), "RecomputePosition")]
         [HarmonyPostfix]
-        public static void DrawPos_Postfix(PawnFlyer __instance, ref Vector3 __result)
+        public static void RecomputePosition_Postfix(PawnFlyer __instance)
         {
             Map map = __instance.Map;
             if (map == null || !map.Tossers().IsJumpFlyer(__instance))
@@ -1207,9 +1210,9 @@ namespace TKS_Ragdoll
                 return;
             }
 
-            float vanillaPeak = __instance.def.pawnFlyer.heightFactor;
-            float peak = Mathf.Min(jumpHeightPerCell * flightDistanceRef(__instance), vanillaPeak);
-            __result.z -= (vanillaPeak - peak) * effectiveHeightRef(__instance);
+            float height = effectiveHeightRef(__instance);
+            float peak = Mathf.Min(jumpHeightPerCell * flightDistanceRef(__instance), __instance.def.pawnFlyer.heightFactor);
+            effectivePosRef(__instance) = groundPosRef(__instance) + Altitudes.AltIncVect * height + Vector3.forward * (peak * height);
         }
 
         //remember what one of our flyers is carrying - it's dropped (and the flyer emptied) during RespawnPawn
